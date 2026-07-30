@@ -46,12 +46,13 @@ export async function generate(input: GenerateInput): Promise<GenerateResult> {
     return { status: "error", attempts: attempt };
   }
 
-  // Kick off the next stage and return.
-  void input.advanceToNextStage().catch(() => {
-    /* ignored */
-  });
-
-  return { status: "ok", attempts: attempt };
+  // Hand off to the next stage and surface any failure.
+  try {
+    await input.advanceToNextStage();
+    return { status: "ok", attempts: attempt };
+  } catch {
+    return { status: "error", attempts: attempt };
+  }
 }
 
 export { MAX_REVISIONS };
