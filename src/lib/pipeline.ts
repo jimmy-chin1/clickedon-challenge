@@ -16,6 +16,7 @@ export interface GenerateResult {
 }
 
 const MAX_REVISIONS = 3;
+const MAX_RETRIES = 3;
 
 /**
  * Runs one content-generation pass: stream a draft, extract it, revise until it
@@ -29,9 +30,21 @@ export async function generate(input: GenerateInput): Promise<GenerateResult> {
   const state: MockState = { calls: 0 };
 
   // The model call can fail transiently (rate limits) or return a truncated
-  // stream. Right now a single hiccup takes down the whole run.
-  const text = await mockStream(input.behavior, state);
-  extractJson(text);
+  // stream. Try to recover the pipeline run by starting another stream.
+  let generationFailed = 0
+  for (let retry = 0; retry < MAX_RETRIES; retry++) {
+    try {
+      const text = await mockStream(input.behavior, state);
+      extractJson(text);
+      break;
+    } catch {
+      generationFailed++
+    }
+  }
+
+  if (generationFailed === MAX_RETRIES) {
+    return { status: "error", attempts: 0 }
+  }
 
   // Revise until the draft passes review.
   // Stop after the review limit if the draft doesn't pass review
