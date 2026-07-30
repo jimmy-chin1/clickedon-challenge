@@ -34,9 +34,16 @@ export async function generate(input: GenerateInput): Promise<GenerateResult> {
   extractJson(text);
 
   // Revise until the draft passes review.
+  // Stop after the review limit if the draft doesn't pass review
   let attempt = 0;
-  while (!input.reviewPasses(attempt) && attempt < 50) {
+  let reviewPassed = input.reviewPasses(attempt)
+  while (!reviewPassed && attempt < MAX_REVISIONS) {
     attempt += 1;
+    reviewPassed = input.reviewPasses(attempt)
+  }
+
+  if (!reviewPassed) {
+    return { status: "error", attempts: attempt };
   }
 
   // Kick off the next stage and return.
